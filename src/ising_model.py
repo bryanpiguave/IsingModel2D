@@ -230,7 +230,7 @@ class Ising2D:
                 correlations[step] = self.calculate_correlation_function()
             return correlations
         else: 
-            for step in tqdm(range(num_steps - equilibration_steps), desc="Simulation"):
+            for step in tqdm(range(num_steps), desc="Simulation"):
                 self.monte_carlo_step(beta)
                 energy = self.calculate_energy()
                 magnetization = self.calculate_magnetization()
