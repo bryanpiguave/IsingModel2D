@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import multiprocessing
 
-def calculate_magnetization_and_susceptibility(L, T, num_steps=500, equilibration_steps=100):
+def calculate_magnetization_and_susceptibility(L, T, num_steps=50, equilibration_steps=1000):
     """
     Runs simulation and calculates the average absolute magnetization per site
     and magnetic susceptibility per site.
