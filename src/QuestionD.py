@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import multiprocessing
 
-def calculate_magnetization_and_susceptibility(L, T, num_steps=50, equilibration_steps=1000):
+def calculate_magnetization_and_susceptibility(L, T, num_steps=50, equilibration_steps=10000):
     """
     Runs simulation and calculates the average absolute magnetization per site
     and magnetic susceptibility per site.
@@ -47,7 +47,7 @@ def process_parameters(args):
 
 if __name__ == '__main__':
     Length_vector = np.array([10, 20, 50, 100, 1000])
-    Temperature_vector = np.linspace(1.5, 3.5, 41) # Fine grid around Tc_exact ≈ 2.269
+    Temperature_vector = np.linspace(1.5, 3.5, 20) # Fine grid around Tc_exact ≈ 2.269
 
     params = [(L, T) for L in Length_vector for T in Temperature_vector]
     
