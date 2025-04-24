@@ -47,7 +47,8 @@ def process_parameters(args):
 
 if __name__ == '__main__':
     Length_vector = np.array([10, 20, 50, 100, 1000])
-    Temperature_vector = np.linspace(0.5, 1.7, 20)
+    Temperature_vector = np.linspace(1.5, 3.5, 41) # Fine grid around Tc_exact ≈ 2.269
+
     params = [(L, T) for L in Length_vector for T in Temperature_vector]
     
     os.makedirs(name='outputs', exist_ok=True)

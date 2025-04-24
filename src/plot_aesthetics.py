@@ -1,5 +1,5 @@
-axis_fontdict = {'fontsize': 18, 'color': 'darkblue',
+axis_fontdict = {'fontsize': 16, 'color': 'darkblue',
                  'weight':'bold'}
 
-title_fontdict = {'fontsize': 24, 'color': 'darkblue',
+title_fontdict = {'fontsize': 20, 'color': 'darkblue',
                  'weight':'bold'}
