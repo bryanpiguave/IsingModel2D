@@ -214,18 +214,18 @@ class Ising2D:
             beta = 1.0 / T
         # Pre-allocate arrays for results
         if not correlation_only:
-            energies = np.empty(num_steps - equilibration_steps)    
-            magnetizations = np.empty(num_steps - equilibration_steps)
-        correlations = np.empty(num_steps - equilibration_steps)
+            energies = np.empty(num_steps)    
+            magnetizations = np.empty(num_steps)
+        correlations = np.empty(num_steps)
 
         print(f"Equilibrating for {equilibration_steps} steps at T={T:.2f}...")
         for _ in tqdm(range(equilibration_steps), desc="Equilibration"):
             self.monte_carlo_step(beta)
 
-        print(f"Running simulation for {num_steps - equilibration_steps} steps at T={T:.2f}...")
+        print(f"Running simulation for {num_steps} steps at T={T:.2f}...")
         
         if correlation_only:
-            for step in tqdm(range(num_steps - equilibration_steps), desc="Simulation"):
+            for step in tqdm(range(num_steps), desc="Simulation"):
                 self.monte_carlo_step(beta)
                 correlations[step] = self.calculate_correlation_function()
             return correlations
