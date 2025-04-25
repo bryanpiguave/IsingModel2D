@@ -4,6 +4,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 from numba import njit
 import matplotlib.pyplot as plt
+from plot_aesthetics import axis_fontdict, title_fontdict
 
 @njit
 def metropolis_step(lattice, J, H, beta, rng_state):
@@ -88,21 +89,9 @@ if __name__ == "__main__":
     for T in temperatures:
         subset = averaged_df[averaged_df['T'] == T]
         plt.plot(subset['distance'], subset['correlation'], marker='o', linestyle='-', linewidth=1, markersize=4, label=f'T={T:.2f}')
-    plt.xlabel('Distance')
-    plt.ylabel('Correlation')
-    plt.title('Averaged Correlation Function vs Distance')
+    plt.xlabel('Distance', fontdict=axis_fontdict)
+    plt.ylabel('Correlation', fontdict=axis_fontdict)
+    plt.title('Averaged Correlation Function vs Distance', fontdict=title_fontdict)
     plt.legend()
     plt.grid(True)
     plt.savefig('outputs/averaged_correlation_function_plot.png')
-
-    # Semi-log plot
-    plt.figure(figsize=(10, 6))
-    for T in temperatures:
-        subset = averaged_df[averaged_df['T'] == T]
-        plt.semilogy(subset['distance'], np.abs(subset['correlation']), marker='o', linestyle='-', linewidth=1, markersize=4, label=f'T={T:.2f}')
-    plt.xlabel('Distance')
-    plt.ylabel('|Correlation| (log scale)')
-    plt.title('Averaged Correlation Function vs Distance (Semi-log)')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig('outputs/averaged_correlation_function_semilog_plot.png')
