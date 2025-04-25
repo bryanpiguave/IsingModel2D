@@ -1,205 +1,108 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import tqdm
+import pandas as pd
+from joblib import Parallel, delayed
+from numba import njit
+import matplotlib.pyplot as plt
 
-class Ising2DMetropolis:
-    def __init__(self, L=20, J=1.0, H=0.0, initial_state='random', seed=None):
-        """
-        Initializes the 2D Ising model.
+@njit
+def metropolis_step(lattice, J, H, beta, rng_state):
+    L = lattice.shape[0]
+    for _ in range(L * L):
+        i = np.random.randint(0, L)
+        j = np.random.randint(0, L)
+        spin = lattice[i, j]
+        # periodic neighbors
+        neighbors_sum = (lattice[(i + 1) % L, j] + lattice[(i - 1) % L, j]
+                         + lattice[i, (j + 1) % L] + lattice[i, (j - 1) % L])
+        delta_E = 2 * spin * (J * neighbors_sum + H)
+        if delta_E < 0 or np.random.random() < np.exp(-beta * delta_E):
+            lattice[i, j] = -spin
+    return lattice
 
-        Args:
-            L (int): Linear dimension of the square lattice.
-            J (float): Interaction strength between nearest neighbors.
-            H (float): External magnetic field strength.
-            initial_state (str): 'random' or 'up' or 'down'.
-            seed (int, optional): Random seed for reproducibility.
-        """
-        self.L = L
-        self.N = L * L  # Total number of spins
-        self.J = J
-        self.H = H
-        self.beta = 1.0  # Inverse temperature (will be updated)
-        self.rng = np.random.default_rng(seed)
 
-        if initial_state == 'random':
-            self.lattice = self.rng.choice([-1, 1], size=(L, L))
-        elif initial_state == 'up':
-            self.lattice = np.ones((L, L), dtype=int)
-        elif initial_state == 'down':
-            self.lattice = -np.ones((L, L), dtype=int)
-        else:
-            raise ValueError("Invalid initial_state")
-
-    def _calculate_energy(self):
-        """Calculates the total energy of the lattice."""
-        energy = 0
-        for i in range(self.L):
-            for j in range(self.L):
-                spin = self.lattice[i, j]
-                neighbors_sum = (
-                    self.lattice[(i + 1) % self.L, j] +
-                    self.lattice[(i - 1) % self.L, j] +
-                    self.lattice[i, (j + 1) % self.L] +
-                    self.lattice[i, (j - 1) % self.L]
-                )
-                energy += -self.J * spin * neighbors_sum - self.H * spin
-        return energy / 2.0  # Divide by 2 because each bond is counted twice
-
-    def _monte_carlo_step(self):
-        """Performs one Monte Carlo step using the Metropolis algorithm."""
-        for _ in range(self.N):  # Attempt to flip each spin once on average
-            i = self.rng.integers(0, self.L)
-            j = self.rng.integers(0, self.L)
-            spin = self.lattice[i, j]
-            neighbors_sum = (
-                self.lattice[(i + 1) % self.L, j] +
-                self.lattice[(i - 1) % self.L, j] +
-                self.lattice[i, (j + 1) % self.L] +
-                self.lattice[i, (j - 1) % self.L]
-            )
-            delta_E = 2 * spin * (self.J * neighbors_sum + self.H)
-
-            if delta_E < 0:
-                self.lattice[i, j] *= -1
-            elif self.rng.random() < np.exp(-self.beta * delta_E):
-                self.lattice[i, j] *= -1
-
-    def run_simulation(self, T, steps, equilibration_steps=1000):
-        """
-        Runs the Monte Carlo simulation.
-
-        Args:
-            T (float): Temperature of the system.
-            steps (int): Number of Monte Carlo steps to perform for data collection.
-            equilibration_steps (int): Number of initial steps for equilibration.
-
-        Returns:
-            list: A list of lattice configurations sampled during the simulation.
-        """
-        self.beta = 1.0 / T if T > 0 else float('inf')
-        lattice_history = []
-
-        # Equilibration
-        for _ in tqdm(range(equilibration_steps), desc=f"Equilibrating at T={T:.2f}"):
-            self._monte_carlo_step()
-
-        # Data collection
-        for _ in tqdm(range(steps), desc=f"Sampling at T={T:.2f}"):
-            self._monte_carlo_step()
-            lattice_history.append(self.lattice.copy())
-
-        return lattice_history
-
-    def calculate_average_magnetization(self, lattice_samples):
-        """Calculates the average magnetization from the sampled lattices."""
-        if not lattice_samples:
-            return 0.0
-        magnetization_sum = np.sum([np.sum(sample) for sample in lattice_samples])
-        return magnetization_sum / (len(lattice_samples) * self.N)
-
-    def calculate_correlation_function(self, lattice_samples, max_distance=None):
-        """
-        Calculates the correlation function for various spin separations.
-
-        Args:
-            lattice_samples (list): List of sampled lattice configurations.
-            max_distance (int, optional): Maximum distance to calculate the correlation for.
-                                           If None, it calculates for all possible distances.
-
-        Returns:
-            dict: A dictionary where keys are the Manhattan distances and values are the
-                  corresponding correlation function values.
-        """
-        if not lattice_samples:
-            return {}
-
-        if max_distance is None:
-            max_distance = (self.L // 2)  # Maximum Manhattan distance
-
-        correlation_sum = {}
-        pair_counts = {}
-
-        for r in range(max_distance + 1):
-            correlation_sum[r] = 0.0
-            pair_counts[r] = 0
-
-        num_samples = len(lattice_samples)
-        avg_magnetization = self.calculate_average_magnetization(lattice_samples)
-
-        for sample in lattice_samples:
-            for i in range(self.L):
-                for j in range(self.L):
-                    s_i = sample[i, j]
-                    for k in range(self.L):
-                        for l in range(self.L):
-                            if (i, j) == (k, l):
-                                continue
-                            dx = min(abs(i - k), self.L - abs(i - k))
-                            dy = min(abs(j - l), self.L - abs(j - l))
-                            distance = dx + dy
-                            if distance <= max_distance:
-                                correlation_sum[distance] += s_i * sample[k, l]
-                                pair_counts[distance] += 1
-
-        correlation_function = {}
-        for r in range(max_distance + 1):
-            if pair_counts[r] > 0:
-                correlation_function[r] = (correlation_sum[r] / pair_counts[r]) - (avg_magnetization ** 2)
-            else:
-                correlation_function[r] = 0.0
-
-        return correlation_function
+def run_single(params):
+    T, r, L, J, H, steps, equil_steps, seed = params
+    beta = 1.0 / T
+    rng = np.random.default_rng(seed)
+    # initialize random lattice
+    lattice = rng.choice([-1, 1], size=(L, L))
+    # equilibration
+    for _ in range(equil_steps):
+        lattice = metropolis_step(lattice, J, H, beta, None)
+    # sampling
+    corr_list = []
+    for _ in range(steps):
+        lattice = metropolis_step(lattice, J, H, beta, None)
+        corr = 0.0
+        count = 0
+        for i in range(L):
+            for j in range(L):
+                if i + r < L:
+                    corr += lattice[i, j] * lattice[i + r, j]
+                    count += 1
+                if j + r < L:
+                    corr += lattice[i, j] * lattice[i, j + r]
+                    count += 1
+        if count > 0:
+            corr_list.append(corr / count)
+    if corr_list:
+        return T, r, np.mean(corr_list)
+    else:
+        return T, r, np.nan
 
 if __name__ == "__main__":
-    L = 20
-    model = Ising2DMetropolis(L=L, J=1.0, H=0.0, seed=42)
-    steps = 500
-    equilibration_steps = 20000
-    num_temps = 10
-    temperatures = np.linspace(1.5, 3.5, num_temps)  # Range around the critical temperature (Tc ≈ 2.269 for 2D Ising)
+    # parameters
+    L = 20  # Increased lattice size
+    J = 1.0
+    H = 0.0
+    seed_base = 50
+    num_samples = 50  # Increased sampling steps
+    equilibration_steps = 50000  # Increased equilibration steps
+    num_temps = 7
+    temperatures = np.linspace(1.0, 3.5, num_temps)
+    distances = np.arange(1, L // 2) # Adjusted distance range
 
-    all_magnetizations = {}
-    all_correlations = {}
+    num_runs = 5 # Number of independent runs per (T, r)
 
+    # prepare parameter list for parallel execution
+    param_list = []
+    for idx, T in enumerate(temperatures):
+        for r in distances:
+            for run in range(num_runs):
+                param_list.append((T, r, L, J, H, num_samples, equilibration_steps, seed_base + idx + run * num_temps * len(distances)))
+
+    # run in parallel using all available cores
+    results = Parallel(n_jobs=-1, verbose=10)(delayed(run_single)(p) for p in param_list)
+
+    # collect into DataFrame
+    df = pd.DataFrame(results, columns=['T', 'distance', 'correlation'])
+
+    # Average over independent runs
+    averaged_df = df.groupby(['T', 'distance'])['correlation'].mean().reset_index()
+    averaged_df.to_csv('outputs/averaged_correlation_function_results.csv', index=False)
+    print("Finished simulations. Averaged results saved to outputs/averaged_correlation_function_results.csv")
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
     for T in temperatures:
-        print(f"\nRunning simulation for T = {T:.2f}")
-        lattice_history = model.run_simulation(T, steps, equilibration_steps)
-        avg_mag = model.calculate_average_magnetization(lattice_history)
-        correlation = model.calculate_correlation_function(lattice_history, max_distance=L)
-
-        all_magnetizations[T] = avg_mag
-        all_correlations[T] = correlation
-
-    # Plotting the results
-    plt.figure(figsize=(12, 5))
-
-    plt.subplot(1, 2, 1)
-    temps = list(all_magnetizations.keys())
-    mags = list(all_magnetizations.values())
-    plt.plot(temps, np.abs(mags), marker='o')
-    plt.xlabel("Temperature (T)")
-    plt.ylabel("|Average Magnetization (<s>)")
-    plt.title("Average Magnetization vs. Temperature")
-    plt.grid(True)
-
-    plt.subplot(1, 2, 2)
-    distances = range(L + 1)
-    for T, corr in all_correlations.items():
-        corr_values = [corr.get(d, 0) for d in distances]
-        plt.plot(distances, corr_values, marker='.', linestyle='-', label=f"T = {T:.2f}")
-    plt.xlabel("Manhattan Distance (r)")
-    plt.ylabel("Correlation Function (<s_i s_j> - <s_i><s_j>)")
-    plt.title("Correlation Function vs. Distance")
+        subset = averaged_df[averaged_df['T'] == T]
+        plt.plot(subset['distance'], subset['correlation'], marker='o', linestyle='-', linewidth=1, markersize=4, label=f'T={T:.2f}')
+    plt.xlabel('Distance')
+    plt.ylabel('Correlation')
+    plt.title('Averaged Correlation Function vs Distance')
     plt.legend()
     plt.grid(True)
+    plt.savefig('outputs/averaged_correlation_function_plot.png')
 
-    plt.tight_layout()
-    plt.savefig("outputs/answer_questionf.png")
-
-    print("\nAverage Magnetizations:")
-    for T, mag in all_magnetizations.items():
-        print(f"T = {T:.2f}: <s> = {mag:.4f}")
-
-    print("\nCorrelation Functions (first few distances):")
-    for T, corr in all_correlations.items():
-        print(f"T = {T:.2f}: {dict(list(corr.items())[:5])}...")
+    # Semi-log plot
+    plt.figure(figsize=(10, 6))
+    for T in temperatures:
+        subset = averaged_df[averaged_df['T'] == T]
+        plt.semilogy(subset['distance'], np.abs(subset['correlation']), marker='o', linestyle='-', linewidth=1, markersize=4, label=f'T={T:.2f}')
+    plt.xlabel('Distance')
+    plt.ylabel('|Correlation| (log scale)')
+    plt.title('Averaged Correlation Function vs Distance (Semi-log)')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('outputs/averaged_correlation_function_semilog_plot.png')
