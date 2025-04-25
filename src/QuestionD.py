@@ -4,8 +4,9 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 import multiprocessing
+import numpy as np
 
-def calculate_magnetization_and_susceptibility(L, T, num_steps=50, equilibration_steps=10000):
+def calculate_magnetization_and_susceptibility(L, T, num_steps=3, equilibration_steps=10000):
     """
     Runs simulation and calculates the average absolute magnetization per site
     and magnetic susceptibility per site.
@@ -24,19 +25,20 @@ def calculate_magnetization_and_susceptibility(L, T, num_steps=50, equilibration
     else:
         beta = 1.0 / T
 
-    model = Ising2D(L=L, initial_state='random')
+    model = Ising2D(L=L, initial_state='random', J=1.0, H=0.00)
     N = model.N
-    _, magnetizations_norm = model.run_simulation(T, num_steps, equilibration_steps)
+    _, magnetizations = model.run_simulation(T, num_steps, equilibration_steps)
 
-    magnetizations_total = [m * N for m in magnetizations_norm]
-    M_vals = np.array(magnetizations_total)
-    M_abs_vals = np.abs(M_vals)
+    # Average absolute magnetization per site (your original calculation, which is fine for this quantity)
+    M_abs_avg = np.mean(np.abs(magnetizations))
+    avg_abs_mag_per_site = M_abs_avg / N
 
-    avg_abs_mag_per_site = np.mean(M_abs_vals) / N
-
-    M_sq_avg = np.mean(M_vals**2)
-    M_avg_sq = np.mean(M_vals)**2
-    susceptibility_per_site = (beta / N) * (M_sq_avg - M_avg_sq) if T > 0 else 0.0
+    # Magnetic susceptibility per site (corrected calculation)
+    avg_magnetization = np.mean(magnetizations)
+    avg_mag_per_site = avg_magnetization / N
+    avg_sq_magnetization = np.mean(magnetizations**2)
+    avg_sq_mag_per_site = avg_sq_magnetization / N
+    susceptibility_per_site = (avg_sq_mag_per_site - avg_mag_per_site**2) / T
 
     return avg_abs_mag_per_site, susceptibility_per_site
 
@@ -46,9 +48,17 @@ def process_parameters(args):
     return {'L': L, 'T': T, 'Magnetization': avg_abs_mag, 'Susceptibility': susc}
 
 if __name__ == '__main__':
-    Length_vector = np.array([10, 20, 50, 100, 1000])
-    Temperature_vector = np.linspace(1.5, 3.5, 20) # Fine grid around Tc_exact ≈ 2.269
-
+    Length_vector = np.array([10, 20,50, 100, 1000])
+    # Original temperature range and number of points
+    T_critical_approx = 2.27
+    T_start = 1.135 # 0.5*T_critical_approx
+    T_end = 3.404 # 1.5*T_critical_approx
+    # Create a fine grid around the critical temperature
+    T_vector1 = np.linspace(T_start, 2.2,10)
+    T_vector2 = np.linspace(2.5, T_end, 10)
+    T_vector3 = np.linspace(2.2, 10, 20)
+    Temperature_vector = np.concatenate((T_vector1, T_vector2, T_vector3))
+    Temperature_vector = np.unique(Temperature_vector)  # Remove duplicates
     params = [(L, T) for L in Length_vector for T in Temperature_vector]
     
     os.makedirs(name='outputs', exist_ok=True)
