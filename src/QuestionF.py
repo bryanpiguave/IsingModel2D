@@ -94,4 +94,4 @@ if __name__ == "__main__":
     plt.title('Averaged Correlation Function vs Distance', fontdict=title_fontdict)
     plt.legend()
     plt.grid(True)
-    plt.savefig('outputs/averaged_correlation_function_plot.png')
+    plt.savefig('outputs/question_f_averaged_correlation_function_plot.png')
