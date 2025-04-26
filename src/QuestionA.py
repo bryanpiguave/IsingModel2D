@@ -15,7 +15,7 @@ def main():
     plt.grid(True, linestyle='--', alpha=0.6)
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
-    plt.savefig('random_numbers_histogram_soft.png')
+    plt.savefig('outputs/question_a_random_numbers_histogram_soft.png')
 
     # Average of the random numbers
     average = np.mean(random_numbers)
